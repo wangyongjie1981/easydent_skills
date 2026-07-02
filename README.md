@@ -1,6 +1,6 @@
 # 轻松牙医 WorkBuddy 技能包
 
-本目录可直接上传到 GitHub，供 WorkBuddy 安装。Skills 负责“怎么查”，MCP 负责“能不能查”。
+本目录可直接上传到 GitHub，供 WorkBuddy 安装。Skills 负责“怎么查、怎么确认”，MCP 负责“能不能查和写”。
 
 ## 安装步骤
 
@@ -9,7 +9,7 @@
 1. 登录轻松牙医管理后台。
 2. 进入 **系统设置 → 诊所设置 → Agent 接入**。
 3. 点击 **生成 WorkBuddy API Key**。
-4. 复制弹窗中的 Key（明文只显示一次），妥善保存。
+4. 复制弹窗中的 Key（明文只显示一次），妥善保存。该 Key 具备查询、快速建档和创建预约能力。
 
 ### 2. 安装 Skills
 
@@ -56,6 +56,7 @@ uv run mcp-server
 1. 在 WorkBuddy 插件面板查看 MCP 连接状态为绿色。
 2. 新建任务时选择 `@easydental-clinic` 技能。
 3. 尝试提问：“帮我查一下手机号 138 开头的患者”。
+4. 创建患者或预约时，确认 WorkBuddy 会先复述信息，并在你确认后再写入系统。
 
 ## 文件说明
 
@@ -77,6 +78,11 @@ uv run mcp-server
 
 - 确认 MCP 连接器状态正常。
 - 新建任务时手动指定 `@easydental-clinic`。
+
+**Agent 创建预约前没有确认**
+
+- 检查是否安装了最新 `SKILL.md`。
+- MCP 写工具要求 `user_confirmed=true`，未确认时会返回中文错误，不会写入业务数据。
 
 **Key 丢失**
 
