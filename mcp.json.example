@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "easydental": {
+      "url": "http://192.168.1.100:8801/mcp?api_key=在此粘贴API_Key"
+    }
+  }
+}
