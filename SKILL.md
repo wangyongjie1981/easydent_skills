@@ -1,6 +1,6 @@
 ---
 name: easydental-clinic
-description: 轻松牙医诊所助手。用于查询患者、预约记录、医生排班、空闲时段，并在用户确认后快速建档和创建预约；需配合 easydental MCP 连接器使用。
+description: 轻松牙医诊所助手。用于查询患者、预约、医生排班、空闲时段，在用户确认后快速建档和创建预约；也可在日报专用权限下查询诊所运营日报数据；需配合 easydental MCP 连接器使用。
 agent_created: false
 ---
 
@@ -18,12 +18,16 @@ agent_created: false
 - 查询可预约诊疗项目
 - 在用户确认后快速创建患者档案
 - 在用户确认后创建普通预约
+- 查询今日诊所运营总览，用于工作总结、日报和晨会材料
+- 查询某日预约、收费、待收费、退款、病历完成和回访情况
+- 查询明日预约和明日待回访安排
 
 ## 前置条件
 
-1. 已在轻松牙医后台 **系统设置 → Agent 接入** 生成 WorkBuddy API Key。
+1. 已在轻松牙医后台 **系统设置 → Agent 接入** 生成 WorkBuddy API Key，用于患者、预约、排班、快速建档和创建预约。
 2. 已在 WorkBuddy 配置 MCP 连接器（参考技能包中的 `mcp.json.example`）。
 3. MCP Server 与 WorkBuddy 处于同一内网，且连接状态为绿色。
+4. 如需使用运营日报工具，需由管理员创建 `agent_daily_reporter` 权限档位的日报专用 API Key；现有 WorkBuddy 预约助手 Key 默认不包含收费、病历和回访日报权限。
 
 ## 工作流
 
@@ -59,6 +63,17 @@ agent_created: false
 2. 如果工具返回既有患者，直接使用返回的 `patient_id`，不要重复建档。
 3. 如果需要新建档，向用户复述建档信息；用户确认后再调用 `quick_create_patient(user_confirmed=true)`。
 
+### 6. 运营日报
+
+1. 用户提出“今日工作总结”“日报”“晨会材料”“老板想看运营情况”等需求时，先确认日期并转换为 `YYYY-MM-DD`。
+2. 调用 `get_daily_clinic_operations(report_date=...)` 获取运营总览，优先使用返回的 `summary` 和结构化指标。
+3. 需要预约明细时，调用 `list_daily_appointments(scheduled_date=...)`；可按 `status` 或 `doctor_id` 过滤。
+4. 需要收费明细时，调用 `list_daily_billing_records(report_date=..., record_type="paid_records")`。
+5. 需要待收费或退款明细时，分别使用 `record_type="pending_charges"` 或 `record_type="refunds"`。
+6. 需要病历完成情况时，调用 `get_daily_medical_record_report(report_date=...)`，只使用状态统计和待补病历候选，不要求病历正文。
+7. 需要回访情况或明日回访安排时，调用 `list_daily_followup_items(report_date=..., focus=...)`；`focus` 可用 `due_today`、`completed_today`、`overdue`、`needs_doctor`、`tomorrow_due`。
+8. 如果 MCP 返回权限错误或 `access_issues`，如实说明当前 API Key 缺少对应数据权限，不要编造缺失板块。
+
 ## 输出要求
 
 - 所有时间均按诊所本地时间理解，日期格式为 `YYYY-MM-DD`，时间格式为 `HH:MM`。
@@ -66,12 +81,16 @@ agent_created: false
 - 搜索结果的脱敏手机号需明确告知用户：完整号码需通过患者详情工具按 ID 获取。
 - 不要编造患者、预约、医生或空闲时段；工具无结果时如实说明。
 - 创建患者或预约后，必须转述工具返回的 `summary` 和业务 ID，方便诊所人员核对。
+- 生成日报或晨会材料时，只能基于 MCP 返回的结构化数据总结；缺少权限或无数据的板块要明确说明。
+- 运营日报明细中的手机号已脱敏，不要要求或补全完整手机号。
 
 ## 约束规则
 
 - 创建患者或预约前，必须先向用户复述写入内容并获得明确确认。
 - 不支持改约、取消、删除预约；用户提出这些需求时应说明当前 MCP 只支持创建预约。
 - 不要输出身份证号、完整病历正文等未在工具结果中出现的信息。
+- 运营日报工具不返回病历正文、主诉、现病史等内容字段，不要尝试补写或推断。
+- WorkBuddy 预约助手 Key 默认不能查看完整运营日报；若需要收费、病历、回访日报数据，提示管理员切换为日报专用 Key。
 - 涉及多名患者或多名医生时，必须先消歧再查详情。
 - 若 MCP 返回 `error: true`，将 `message` 原意转述给用户，并提示检查 API Key 与 MCP 连接。
 
@@ -87,3 +106,8 @@ agent_created: false
 | 找项目 | `list_appointment_projects` |
 | 快速建档 | `quick_create_patient` |
 | 创建预约 | `search_patients` / `quick_create_patient` → `list_doctors` → `list_appointment_projects` → `find_available_slots` → `create_appointment` |
+| 运营总览 | `get_daily_clinic_operations` |
+| 预约日报明细 | `list_daily_appointments` |
+| 收费/待收费/退款明细 | `list_daily_billing_records` |
+| 病历完成情况 | `get_daily_medical_record_report` |
+| 回访日报明细 | `list_daily_followup_items` |

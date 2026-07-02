@@ -11,6 +11,15 @@
 3. 点击 **生成 WorkBuddy API Key**。
 4. 复制弹窗中的 Key（明文只显示一次），妥善保存。该 Key 具备查询、快速建档和创建预约能力。
 
+如需使用运营日报工具，请由管理员在后端创建日报专用 Key：
+
+```bash
+cd backend
+uv run mcp-manage create-client --tenant-id <租户ID> --name "Daily Reporter" --profile daily_reporter
+```
+
+日报专用 Key 具备预约、收费、病历、回访等只读查询能力，但不具备快速建档和创建预约能力。一个 MCP 连接通常只配置一个 Key；需要同时使用预约写入和完整日报时，请按当前任务切换对应 Key。
+
 ### 2. 安装 Skills
 
 将本目录安装到 WorkBuddy Skills 目录，例如：

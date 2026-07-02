@@ -15,6 +15,13 @@
 | `list_doctors` | 列出在职医生 |
 | `list_doctor_schedule` | 查询医生某天排班与占用 |
 | `find_available_slots` | 查询医生某天空闲时段 |
+| `get_daily_clinic_operations` | 查询指定日期诊所运营总览 |
+| `list_daily_appointments` | 分页查询某日预约明细 |
+| `list_daily_billing_records` | 分页查询某日收费、待收费或退款记录 |
+| `get_daily_medical_record_report` | 查询某日病历状态统计和待补病历候选 |
+| `list_daily_followup_items` | 分页查询某日回访待办、已回访、逾期、需医生处理或明日待办 |
+
+> 运营日报工具需要使用 `agent_daily_reporter` 权限档位的 MCP API Key。现有 WorkBuddy 预约助手 Key 默认不包含收费、病历和回访日报权限。
 
 ## 示例对话
 
@@ -70,6 +77,20 @@ Agent 步骤：
 4. 调用 `find_available_slots(doctor_id=..., schedule_date="2026-07-03")` 确认目标时间空闲
 5. 向用户复述预约信息
 6. 用户确认后调用 `create_appointment(..., user_confirmed=true)`
+
+### 运营日报
+
+用户：帮我准备今天晨会的诊所运营情况
+
+Agent 步骤：
+
+1. 调用 `get_daily_clinic_operations(report_date="2026-07-02")` 获取总览数据
+2. 如需预约明细，调用 `list_daily_appointments(scheduled_date="2026-07-02")`
+3. 如需收费明细，调用 `list_daily_billing_records(report_date="2026-07-02", record_type="paid_records")`
+4. 如需待收费，调用 `list_daily_billing_records(report_date="2026-07-02", record_type="pending_charges")`
+5. 如需病历完成情况，调用 `get_daily_medical_record_report(report_date="2026-07-02")`
+6. 如需回访安排，调用 `list_daily_followup_items(report_date="2026-07-02", focus="due_today")`
+7. 根据工具返回的结构化数据生成日报正文，不要编造未返回的数据
 
 ## 认证方式
 
