@@ -13,7 +13,9 @@
 | `quick_create_patient` | 按手机号查重并在确认后快速建档 |
 | `create_appointment` | 在确认后创建普通预约 |
 | `list_doctors` | 列出在职医生 |
+| `list_schedule_shifts` | 列出启用班次，供写入排班前选择班次 ID |
 | `list_doctor_schedule` | 查询医生某天排班与占用 |
+| `batch_set_doctor_schedule` | 在确认后批量设置或清空医生排班 |
 | `find_available_slots` | 查询医生某天空闲时段 |
 | `get_daily_clinic_operations` | 查询指定日期诊所运营总览 |
 | `list_daily_appointments` | 分页查询某日预约明细 |
@@ -53,6 +55,29 @@ Agent 步骤：
 1. 调用 `list_doctors()` 找到张医生的 `doctor_id`
 2. 调用 `find_available_slots(doctor_id=..., schedule_date="2026-07-03")`
 3. 列出 `available_slots`
+
+### 写入医生排班
+
+用户：把张医生 7 月 4 日和 7 月 5 日都排早班
+
+Agent 步骤：
+
+1. 调用 `list_doctors()` 找到张医生的 `doctor_id`
+2. 调用 `list_schedule_shifts()` 找到“早班”的 `shift_id`
+3. 向用户复述：张医生，2026-07-04、2026-07-05，设置为早班
+4. 用户确认后调用 `batch_set_doctor_schedule(doctor_ids=[...], schedule_dates=["2026-07-04", "2026-07-05"], shift_id=..., user_confirmed=true)`
+5. 按返回的 `summary`、`affected_count`、`doctor_names` 和 `dates` 回复
+
+### 清空医生排班
+
+用户：清掉张医生 7 月 4 日的排班
+
+Agent 步骤：
+
+1. 调用 `list_doctors()` 找到张医生的 `doctor_id`
+2. 向用户复述：将清空张医生 2026-07-04 的排班
+3. 用户确认后调用 `batch_set_doctor_schedule(doctor_ids=[...], schedule_dates=["2026-07-04"], shift_id=null, user_confirmed=true)`
+4. 按返回的 `summary` 和 `affected_count` 回复
 
 ### 快速建档
 

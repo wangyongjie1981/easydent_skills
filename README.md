@@ -9,7 +9,7 @@
 1. 登录轻松牙医管理后台。
 2. 进入 **系统设置 → 诊所设置 → Agent 接入**。
 3. 点击 **生成 WorkBuddy API Key**。
-4. 复制弹窗中的 Key（明文只显示一次），妥善保存。该 Key 具备查询、快速建档和创建预约能力。
+4. 复制弹窗中的 Key（明文只显示一次），妥善保存。该 Key 具备查询、快速建档、创建预约和医生排班写入能力。
 
 如需使用运营日报工具，请由管理员在后端创建日报专用 Key：
 
@@ -18,7 +18,7 @@ cd backend
 uv run mcp-manage create-client --tenant-id <租户ID> --name "Daily Reporter" --profile daily_reporter
 ```
 
-日报专用 Key 具备预约、收费、病历、回访等只读查询能力，但不具备快速建档和创建预约能力。一个 MCP 连接通常只配置一个 Key；需要同时使用预约写入和完整日报时，请按当前任务切换对应 Key。
+日报专用 Key 具备预约、收费、病历、回访等只读查询能力，但不具备快速建档、创建预约和医生排班写入能力。一个 MCP 连接通常只配置一个 Key；需要同时使用业务写入和完整日报时，请按当前任务切换对应 Key。
 
 ### 2. 安装 Skills
 
@@ -65,7 +65,7 @@ uv run mcp-server
 1. 在 WorkBuddy 插件面板查看 MCP 连接状态为绿色。
 2. 新建任务时选择 `@easydental-clinic` 技能。
 3. 尝试提问：“帮我查一下手机号 138 开头的患者”。
-4. 创建患者或预约时，确认 WorkBuddy 会先复述信息，并在你确认后再写入系统。
+4. 创建患者、预约或写入排班时，确认 WorkBuddy 会先复述信息，并在你确认后再写入系统。
 
 ## 文件说明
 
@@ -92,6 +92,12 @@ uv run mcp-server
 
 - 检查是否安装了最新 `SKILL.md`。
 - MCP 写工具要求 `user_confirmed=true`，未确认时会返回中文错误，不会写入业务数据。
+
+**Agent 不能写入排班**
+
+- 确认使用的是 WorkBuddy 预约助手 Key，而不是 `agent_daily_reporter` 日报专用 Key。
+- 确认已安装最新 `SKILL.md`，并先用 `list_schedule_shifts` 查询班次 ID。
+- 清空排班时必须明确复述医生和日期，确认后调用写入工具且 `shift_id` 为空。
 
 **Key 丢失**
 
