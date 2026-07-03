@@ -13,6 +13,7 @@ agent_created: false
 - 查找患者（姓名、手机号、病历号、拼音）
 - 查看患者详情、过敏史、标签和分组
 - 分页读取分析用患者数据，避免只取样本导致结论失真
+- 分页读取分析用预约、账单、收费、退款和待收费数据，避免只取日报样本做结论
 - 查询患者预约记录
 - 列出在职医生并将“王医生”等称呼解析为医生 ID
 - 查询医生某天的排班、已占用时段和空闲可预约时段
@@ -59,6 +60,8 @@ agent_created: false
 - 病历补写：先查待补病历或患者预约；只保存医生确认的草稿，不自行补写诊断、处置或医嘱。
 - 晨会/经营分析：先确认日期范围和受众；查询运营总览，再按需要补充预约、收费、病历、回访和医生工作量；缺少权限或数据时明确说明。
 - 患者结构分析：使用 `list_patients_for_analysis` 按 `has_next_page` / `next_page` 分页拉取完整匹配集；不要只取第一页或搜索结果样本做结论。
+- 预约与收款分析：使用 `list_appointments_for_analysis`、`list_billing_records_for_analysis` 按 `has_next_page` / `next_page` 拉取完整匹配集；日报明细工具只用于单日补充，不作为跨期分析主入口。
+- 用户没有给出明确筛选条件时，分析型读取工具直接空参数分页查询全量；不要猜测日期、状态、来源、医生或关键词。
 
 ## 工作流
 
@@ -67,13 +70,14 @@ agent_created: false
 1. 使用 `search_patients` 按关键词搜索，默认返回脱敏手机号。
 2. 若有多名同名患者，列出摘要并请用户确认。
 3. 需要患者业务详情或过敏史时，再用 `get_patient_detail` 按 `patient_id` 查询；手机号、身份证号和备用联系人电话会脱敏。
-4. 做患者结构、来源、标签、年龄、首诊、会员、回访等分析时，不使用 `search_patients` 抽样；改用 `list_patients_for_analysis(page_size=100)` 分页读取，并持续按 `next_page` 拉取到 `has_next_page=false`。
+4. 做患者结构、来源、标签、年龄、首诊、会员、回访等分析时，不使用 `search_patients` 抽样；改用 `list_patients_for_analysis(page_size=100)` 分页读取，并持续按 `next_page` 拉取到 `has_next_page=false`。用户未指定筛选条件时，不要猜条件，直接空参数分页查询全量。
 
 ### 2. 查预约
 
 1. 先确定 `patient_id`（通过搜索或用户提供）。
 2. 使用 `list_patient_appointments` 查询该患者预约，按时间倒序展示。
 3. 回复时使用工具返回的中文摘要，并说明当前页码与总数。
+4. 做预约结构、来源渠道、爽约/失约、医生预约量、项目预约趋势等分析时，使用 `list_appointments_for_analysis(page_size=100)`，持续按 `next_page` 拉取到 `has_next_page=false`。用户未指定筛选条件时，不要猜日期或状态，直接空参数分页查询全量。
 
 ### 3. 查医生与排班
 
@@ -145,7 +149,7 @@ agent_created: false
 ### 11. 医疗数据分析 HTML 报告
 
 1. 先锁定报告目的、受众、日期范围、核心指标、对比基线和数据截止时间；如果用户没有指定受众，默认面向诊所经营管理者。
-2. 按报告问题选择最少必要工具：患者结构分析用 `list_patients_for_analysis` 并分页拉取完整匹配集；日/周/月经营汇总用 `get_daily_clinic_operations` 或 `get_date_range_operations_report`；预约明细用 `list_daily_appointments`；收费、待收费和退款用 `list_daily_billing_records`；病历完成用 `get_daily_medical_record_report` 或 `get_medical_record_workload_report`；回访风险用 `list_daily_followup_items`；医生工作量用 `get_doctor_performance_report`。
+2. 按报告问题选择最少必要工具：患者结构分析用 `list_patients_for_analysis`；预约明细分析用 `list_appointments_for_analysis`；账单、收费、退款和待收费分析用 `list_billing_records_for_analysis`；以上分析型列表都要分页拉取完整匹配集。日/周/月经营汇总用 `get_daily_clinic_operations` 或 `get_date_range_operations_report`；单日补充明细可用 `list_daily_appointments`、`list_daily_billing_records`、`get_daily_medical_record_report`、`list_daily_followup_items`；医生工作量用 `get_doctor_performance_report`。
 3. 生成结论前先核对指标口径、时间窗口、分母、比较基线、权限缺失和数据新鲜度；近期数据可能尚未完整入库时，必须在报告中标注。
 4. 报告中的关键结论要区分“已验证事实”“可能原因”“需要继续核查”；不要把时间相近的业务事件直接写成因果关系。
 5. 每个重要指标都要说明口径或解释基础，例如预约数、到诊数、爽约/失约数、待收费金额、病历完成率、待回访数、逾期回访数、医生固定口径工作量试算等。
@@ -160,9 +164,10 @@ agent_created: false
 
 - 所有时间均按诊所本地时间理解，日期格式为 `YYYY-MM-DD`，时间格式为 `HH:MM`。
 - 优先引用 MCP 工具返回的 `summary` 字段，再补充结构化细节。
-- 搜索结果的脱敏手机号需明确告知用户：完整号码需通过患者详情工具按 ID 获取。
+- 搜索、详情和分析工具返回的手机号均为脱敏值；不要要求或猜测完整手机号。
 - 患者详情和患者分析数据中的手机号、身份证号、备用联系人电话均为脱敏值；不得要求补全或猜测。
-- 做患者维度分析时，必须按 `has_next_page` / `next_page` 拉取完整匹配数据后再下结论；如果权限、页数或工具错误导致无法拉全，要在结论中明确说明。
+- 做患者、预约、账单、收费、退款或待收费维度分析时，必须按 `has_next_page` / `next_page` 拉取完整匹配数据后再下结论；用户没有给筛选条件时必须空参数查询全量，不要猜测条件；如果权限、页数或工具错误导致无法拉全，要在结论中明确说明。
+- 预约分析手机号为脱敏值；收款分析不返回收费签名和收款凭证号，不得要求补全或猜测。
 - 不要编造患者、预约、医生或空闲时段；工具无结果时如实说明。
 - 创建患者或预约后，必须转述工具返回的 `summary` 和业务 ID，方便诊所人员核对。
 - 改约、取消、签到、失约、保存病历草稿或处理回访后，必须转述工具返回的 `summary` 和业务 ID。
@@ -220,6 +225,8 @@ agent_created: false
 | --- | --- |
 | 找患者 | `search_patients` → `get_patient_detail` |
 | 患者结构/来源/标签分析 | `list_patients_for_analysis`，按 `next_page` 拉取完整匹配集 |
+| 预约结构/状态/渠道分析 | `list_appointments_for_analysis`，按 `next_page` 拉取完整匹配集 |
+| 账单/收费/退款/待收费分析 | `list_billing_records_for_analysis`，按 `next_page` 拉取完整匹配集 |
 | 看预约 | `list_patient_appointments` |
 | 找医生 | `list_doctors` |
 | 看排班 | `list_doctor_schedule` |
