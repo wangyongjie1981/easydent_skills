@@ -6,7 +6,8 @@
 | --- | --- |
 | `health_check` | 检查 MCP Server 是否正常 |
 | `search_patients` | 按关键词搜索患者（手机号脱敏） |
-| `get_patient_detail` | 按患者 ID 查询详情 |
+| `get_patient_detail` | 按患者 ID 查询完整业务详情，手机号、身份证号和联系人电话脱敏 |
+| `list_patients_for_analysis` | 分页读取分析用患者数据，每页最多 100 条 |
 | `list_patient_appointments` | 查询患者预约列表 |
 | `get_current_clinic_profile` | 查询当前 API Key 绑定诊所 |
 | `list_appointment_projects` | 查询可预约诊疗项目 |
@@ -50,7 +51,20 @@ Agent 步骤：
 
 1. 调用 `search_patients(keyword="张三")`
 2. 若只有 1 条，可直接展示摘要
-3. 若用户需要完整手机号，再调用 `get_patient_detail(patient_id=...)`
+3. 若用户需要业务详情、过敏史、标签或分组，再调用 `get_patient_detail(patient_id=...)`
+4. 注意患者详情中的手机号、身份证号和备用联系人电话仍为脱敏值
+
+### 患者分析
+
+用户：分析一下本月建档患者的来源和年龄结构
+
+Agent 步骤：
+
+1. 明确分析时间口径，例如 `date_field="created_at"`、`date_start="2026-07-01"`、`date_end="2026-07-31"`
+2. 调用 `list_patients_for_analysis(page_size=100, ...)`
+3. 如果返回 `has_next_page=true`，继续用 `next_page` 调用，直到 `has_next_page=false`
+4. 只基于完整匹配集做统计；如果无法拉全，必须在结论中说明“数据未完整获取”
+5. 不使用 `search_patients` 的搜索结果样本做患者结构分析
 
 ### 查预约
 

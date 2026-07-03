@@ -12,6 +12,7 @@ agent_created: false
 
 - 查找患者（姓名、手机号、病历号、拼音）
 - 查看患者详情、过敏史、标签和分组
+- 分页读取分析用患者数据，避免只取样本导致结论失真
 - 查询患者预约记录
 - 列出在职医生并将“王医生”等称呼解析为医生 ID
 - 查询医生某天的排班、已占用时段和空闲可预约时段
@@ -57,6 +58,7 @@ agent_created: false
 - 回访处理：先查任务；记录沟通结果前确认联系方式、联系结果、沟通内容、下一步动作和下次回访日期。
 - 病历补写：先查待补病历或患者预约；只保存医生确认的草稿，不自行补写诊断、处置或医嘱。
 - 晨会/经营分析：先确认日期范围和受众；查询运营总览，再按需要补充预约、收费、病历、回访和医生工作量；缺少权限或数据时明确说明。
+- 患者结构分析：使用 `list_patients_for_analysis` 按 `has_next_page` / `next_page` 分页拉取完整匹配集；不要只取第一页或搜索结果样本做结论。
 
 ## 工作流
 
@@ -64,7 +66,8 @@ agent_created: false
 
 1. 使用 `search_patients` 按关键词搜索，默认返回脱敏手机号。
 2. 若有多名同名患者，列出摘要并请用户确认。
-3. 需要完整联系方式或过敏史时，再用 `get_patient_detail` 按 `patient_id` 查询。
+3. 需要患者业务详情或过敏史时，再用 `get_patient_detail` 按 `patient_id` 查询；手机号、身份证号和备用联系人电话会脱敏。
+4. 做患者结构、来源、标签、年龄、首诊、会员、回访等分析时，不使用 `search_patients` 抽样；改用 `list_patients_for_analysis(page_size=100)` 分页读取，并持续按 `next_page` 拉取到 `has_next_page=false`。
 
 ### 2. 查预约
 
@@ -142,7 +145,7 @@ agent_created: false
 ### 11. 医疗数据分析 HTML 报告
 
 1. 先锁定报告目的、受众、日期范围、核心指标、对比基线和数据截止时间；如果用户没有指定受众，默认面向诊所经营管理者。
-2. 按报告问题选择最少必要工具：日/周/月经营汇总用 `get_daily_clinic_operations` 或 `get_date_range_operations_report`；预约明细用 `list_daily_appointments`；收费、待收费和退款用 `list_daily_billing_records`；病历完成用 `get_daily_medical_record_report` 或 `get_medical_record_workload_report`；回访风险用 `list_daily_followup_items`；医生工作量用 `get_doctor_performance_report`。
+2. 按报告问题选择最少必要工具：患者结构分析用 `list_patients_for_analysis` 并分页拉取完整匹配集；日/周/月经营汇总用 `get_daily_clinic_operations` 或 `get_date_range_operations_report`；预约明细用 `list_daily_appointments`；收费、待收费和退款用 `list_daily_billing_records`；病历完成用 `get_daily_medical_record_report` 或 `get_medical_record_workload_report`；回访风险用 `list_daily_followup_items`；医生工作量用 `get_doctor_performance_report`。
 3. 生成结论前先核对指标口径、时间窗口、分母、比较基线、权限缺失和数据新鲜度；近期数据可能尚未完整入库时，必须在报告中标注。
 4. 报告中的关键结论要区分“已验证事实”“可能原因”“需要继续核查”；不要把时间相近的业务事件直接写成因果关系。
 5. 每个重要指标都要说明口径或解释基础，例如预约数、到诊数、爽约/失约数、待收费金额、病历完成率、待回访数、逾期回访数、医生固定口径工作量试算等。
@@ -158,6 +161,8 @@ agent_created: false
 - 所有时间均按诊所本地时间理解，日期格式为 `YYYY-MM-DD`，时间格式为 `HH:MM`。
 - 优先引用 MCP 工具返回的 `summary` 字段，再补充结构化细节。
 - 搜索结果的脱敏手机号需明确告知用户：完整号码需通过患者详情工具按 ID 获取。
+- 患者详情和患者分析数据中的手机号、身份证号、备用联系人电话均为脱敏值；不得要求补全或猜测。
+- 做患者维度分析时，必须按 `has_next_page` / `next_page` 拉取完整匹配数据后再下结论；如果权限、页数或工具错误导致无法拉全，要在结论中明确说明。
 - 不要编造患者、预约、医生或空闲时段；工具无结果时如实说明。
 - 创建患者或预约后，必须转述工具返回的 `summary` 和业务 ID，方便诊所人员核对。
 - 改约、取消、签到、失约、保存病历草稿或处理回访后，必须转述工具返回的 `summary` 和业务 ID。
@@ -214,6 +219,7 @@ agent_created: false
 | 用户意图 | 推荐工具 |
 | --- | --- |
 | 找患者 | `search_patients` → `get_patient_detail` |
+| 患者结构/来源/标签分析 | `list_patients_for_analysis`，按 `next_page` 拉取完整匹配集 |
 | 看预约 | `list_patient_appointments` |
 | 找医生 | `list_doctors` |
 | 看排班 | `list_doctor_schedule` |
