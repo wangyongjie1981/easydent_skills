@@ -1,6 +1,6 @@
 ---
 name: easydental-clinic
-description: 轻松牙医诊所助手。用于查询患者、预约、医生排班、空闲时段，在用户确认后快速建档、创建预约和写入医生排班；也可在日报专用权限下查询诊所运营日报数据；需配合 easydental MCP 连接器使用。
+description: 轻松牙医诊所助手。用于查询患者、预约、医生排班、空闲时段，在用户确认后快速建档、创建/调整预约、写入医生排班、保存病历草稿和处理回访；也可查询固定口径运营汇总；需配合 easydental MCP 连接器使用。
 agent_created: false
 ---
 
@@ -18,17 +18,21 @@ agent_created: false
 - 查询启用班次，并在用户确认后批量设置或清空医生排班
 - 查询可预约诊疗项目
 - 在用户确认后快速创建患者档案
-- 在用户确认后创建普通预约
+- 在用户确认后创建普通预约、改约、取消预约、签到或标记失约
+- 查询某医生多日预约安排和某日候诊队列
+- 查询患者历史病历，并在医生确认后保存病历草稿
+- 查询回访任务，在用户确认后调整任务或记录回访结果
 - 查询今日诊所运营总览，用于工作总结、日报和晨会材料
 - 查询某日预约、收费、待收费、退款、病历完成和回访情况
 - 查询明日预约和明日待回访安排
+- 查询日期范围经营汇总、病历工作量和医生工作量试算
 
 ## 前置条件
 
-1. 已在轻松牙医后台 **系统设置 → Agent 接入** 生成 WorkBuddy API Key，用于患者、预约、排班查询、快速建档、创建预约和医生排班写入。
+1. 已在轻松牙医后台 **系统设置 → Agent 接入** 生成 WorkBuddy API Key，用于患者、预约、排班、病历草稿和回访类受控操作。
 2. 已在 WorkBuddy 配置 MCP 连接器（参考技能包中的 `mcp.json.example`）。
 3. MCP Server 与 WorkBuddy 处于同一内网，且连接状态为绿色。
-4. 如需使用运营日报工具，需由管理员创建 `agent_daily_reporter` 权限档位的日报专用 API Key；现有 WorkBuddy 预约助手 Key 默认不包含收费、病历和回访日报权限。
+4. 如需查看收费、退款等完整运营日报板块，需由管理员创建 `agent_daily_reporter` 权限档位的日报专用 API Key；WorkBuddy 预约助手 Key 不执行收费、退款、库存或收费单打印。
 
 ## 工作流
 
@@ -58,7 +62,16 @@ agent_created: false
 4. 指定医生时先调用 `find_available_slots`，确认目标时间在空闲时段内。
 5. 向用户复述患者、医生、日期、时间、持续时间、项目和备注；用户确认后再调用 `create_appointment(user_confirmed=true)`。
 
-### 5. 写入医生排班
+### 5. 改约与预约状态
+
+1. 先用 `search_patients`、`list_patient_appointments` 或 `list_doctor_appointments` 明确唯一 `appointment_id`。
+2. 改约前先确认目标医生、日期、时间和项目；指定医生时先调用 `find_available_slots`，避免冲突。
+3. 用户确认后调用 `update_appointment(user_confirmed=true)`；改时间必须同时传 `scheduled_date` 和 `start_time`。
+4. 取消预约、到店签到或标记失约前，必须复述患者、原预约时间和动作后果。
+5. 用户确认后分别调用 `cancel_appointment`、`check_in_appointment` 或 `mark_appointment_missed`。
+6. 不调用删除预约能力；取消和失约都保留记录，便于后续统计。
+
+### 6. 写入医生排班
 
 1. 用户提到医生姓名时，先调用 `list_doctors` 解析为 `doctor_id`。
 2. 调用 `list_schedule_shifts` 获取启用班次，按班次名称匹配 `shift_id`。
@@ -67,13 +80,29 @@ agent_created: false
 5. 用户确认后调用 `batch_set_doctor_schedule(user_confirmed=true)`；设置排班时传 `shift_id`，清空排班时传 `shift_id=null`。
 6. 返回时转述工具的 `summary`、影响条数和医生姓名；如果 MCP 返回权限错误，提示当前 API Key 缺少排班更新权限。
 
-### 6. 快速建档
+### 7. 快速建档
 
 1. 用户提供新患者姓名、手机号、年龄和初诊日期后，先调用 `quick_create_patient(user_confirmed=false)` 检查手机号是否已有患者。
 2. 如果工具返回既有患者，直接使用返回的 `patient_id`，不要重复建档。
 3. 如果需要新建档，向用户复述建档信息；用户确认后再调用 `quick_create_patient(user_confirmed=true)`。
 
-### 7. 运营日报
+### 8. 病历草稿
+
+1. 先明确患者或预约；需要历史参考时调用 `list_patient_medical_records` 或 `get_medical_record`。
+2. 只保存医生口述或明确确认的病历草稿，不自行诊断、补写结论或提交病历。
+3. 保存前复述患者、接诊医生、就诊时间、主诉、诊断、处置、医嘱等关键内容。
+4. 用户确认后调用 `save_medical_record_draft(user_confirmed=true)`。
+5. 如果用户要求提交、作废或删除病历，应提示仍需在轻松牙医系统内由医生完成。
+
+### 9. 回访任务
+
+1. 查询今日、逾期、某患者或某责任人的回访时，调用 `list_followup_tasks`。
+2. 调整回访日期、负责人、优先级或状态前，复述任务和调整内容。
+3. 用户确认后调用 `update_followup_task(user_confirmed=true)`。
+4. 记录沟通结果前，确认联系方式、联系结果、沟通内容、下一步动作和下次回访日期。
+5. 用户确认后调用 `record_followup_result(user_confirmed=true)`；如果 `next_action="continue"`，必须填写 `next_followup_date`。
+
+### 10. 运营日报和范围汇总
 
 1. 用户提出“今日工作总结”“日报”“晨会材料”“老板想看运营情况”等需求时，先确认日期并转换为 `YYYY-MM-DD`。
 2. 调用 `get_daily_clinic_operations(report_date=...)` 获取运营总览，优先使用返回的 `summary` 和结构化指标。
@@ -82,7 +111,8 @@ agent_created: false
 5. 需要待收费或退款明细时，分别使用 `record_type="pending_charges"` 或 `record_type="refunds"`。
 6. 需要病历完成情况时，调用 `get_daily_medical_record_report(report_date=...)`，只使用状态统计和待补病历候选，不要求病历正文。
 7. 需要回访情况或明日回访安排时，调用 `list_daily_followup_items(report_date=..., focus=...)`；`focus` 可用 `due_today`、`completed_today`、`overdue`、`needs_doctor`、`tomorrow_due`。
-8. 如果 MCP 返回权限错误或 `access_issues`，如实说明当前 API Key 缺少对应数据权限，不要编造缺失板块。
+8. 需要多日汇总时，调用 `get_date_range_operations_report`；需要病历补写工作量时，调用 `get_medical_record_workload_report`；需要医生固定口径工作量试算时，调用 `get_doctor_performance_report`。
+9. 如果 MCP 返回权限错误或 `access_issues`，如实说明当前 API Key 缺少对应数据权限，不要编造缺失板块。
 
 ## 输出要求
 
@@ -91,19 +121,22 @@ agent_created: false
 - 搜索结果的脱敏手机号需明确告知用户：完整号码需通过患者详情工具按 ID 获取。
 - 不要编造患者、预约、医生或空闲时段；工具无结果时如实说明。
 - 创建患者或预约后，必须转述工具返回的 `summary` 和业务 ID，方便诊所人员核对。
+- 改约、取消、签到、失约、保存病历草稿或处理回访后，必须转述工具返回的 `summary` 和业务 ID。
 - 写入排班后，必须转述工具返回的 `summary`、影响条数和日期列表，方便诊所人员核对。
 - 生成日报或晨会材料时，只能基于 MCP 返回的结构化数据总结；缺少权限或无数据的板块要明确说明。
 - 运营日报明细中的手机号已脱敏，不要要求或补全完整手机号。
 
 ## 约束规则
 
-- 创建患者、预约或写入排班前，必须先向用户复述写入内容并获得明确确认。
-- 不支持改约、取消、删除预约；用户提出这些需求时应说明当前 MCP 只支持创建预约。
+- 创建患者、创建/调整预约、写入排班、保存病历草稿、更新回访任务或记录回访结果前，必须先向用户复述写入内容并获得明确确认。
+- 不支持删除预约；改约、取消、签到和失约必须通过对应工具保留业务记录。
 - 排班写入只支持给医生设置已有班次或清空医生某日排班，不支持创建、编辑或删除班次模板。
 - 清空排班属于覆盖性操作，必须在确认话术中明确列出被清空的医生和日期。
+- 不执行收费、退款、库存管理、收费单打印或患者来源维护；用户提出这些需求时，应提示在轻松牙医系统内操作。
+- 不处理患者端预约提醒、诊室或椅位分配。
 - 不要输出身份证号、完整病历正文等未在工具结果中出现的信息。
-- 运营日报工具不返回病历正文、主诉、现病史等内容字段，不要尝试补写或推断。
-- WorkBuddy 预约助手 Key 默认不能查看完整运营日报；若需要收费、病历、回访日报数据，提示管理员切换为日报专用 Key。
+- 运营日报和范围汇总工具不返回病历正文、主诉、现病史等内容字段，不要尝试补写或推断。
+- WorkBuddy 预约助手 Key 默认不能查看收费和退款明细；若需要完整日报数据，提示管理员切换为日报专用 Key。
 - 涉及多名患者或多名医生时，必须先消歧再查详情。
 - 若 MCP 返回 `error: true`，将 `message` 原意转述给用户，并提示检查 API Key 与 MCP 连接。
 
@@ -121,8 +154,18 @@ agent_created: false
 | 找项目 | `list_appointment_projects` |
 | 快速建档 | `quick_create_patient` |
 | 创建预约 | `search_patients` / `quick_create_patient` → `list_doctors` → `list_appointment_projects` → `find_available_slots` → `create_appointment` |
+| 改约 | `list_patient_appointments` / `list_doctor_appointments` → `find_available_slots` → `update_appointment` |
+| 取消/签到/失约 | `list_patient_appointments` / `list_doctor_appointments` → `cancel_appointment` / `check_in_appointment` / `mark_appointment_missed` |
+| 候诊队列 | `list_waiting_patients` |
+| 病历查询 | `list_patient_medical_records` → `get_medical_record` |
+| 保存病历草稿 | `search_patients` / `list_patient_appointments` → `save_medical_record_draft` |
+| 回访任务 | `list_followup_tasks` |
+| 处理回访 | `list_followup_tasks` → `update_followup_task` / `record_followup_result` |
 | 运营总览 | `get_daily_clinic_operations` |
 | 预约日报明细 | `list_daily_appointments` |
 | 收费/待收费/退款明细 | `list_daily_billing_records` |
 | 病历完成情况 | `get_daily_medical_record_report` |
 | 回访日报明细 | `list_daily_followup_items` |
+| 多日经营汇总 | `get_date_range_operations_report` |
+| 病历工作量 | `get_medical_record_workload_report` |
+| 医生工作量试算 | `get_doctor_performance_report` |
