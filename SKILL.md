@@ -62,6 +62,7 @@ agent_created: false
 - 患者结构分析：使用 `list_patients_for_analysis` 按 `has_next_page` / `next_page` 分页拉取完整匹配集；不要只取第一页或搜索结果样本做结论。
 - 预约与收款分析：使用 `list_appointments_for_analysis`、`list_billing_records_for_analysis` 按 `has_next_page` / `next_page` 拉取完整匹配集；日报明细工具只用于单日补充，不作为跨期分析主入口。
 - 用户没有给出明确筛选条件时，分析型读取工具直接空参数分页查询全量；不要猜测日期、状态、来源、医生或关键词。
+- 读取分析型工具、日报明细、范围汇总、病历或回访明细后，先查看返回的 `field_schema`、`analysis_notes`、`privacy_notes` 和 `pagination_notes`，再解释字段和输出结论；字段名为英文时以 `field_schema` 的中文标签和说明为准。
 
 ## 工作流
 
@@ -167,6 +168,7 @@ agent_created: false
 - 搜索、详情和分析工具返回的手机号均为脱敏值；不要要求或猜测完整手机号。
 - 患者详情和患者分析数据中的手机号、身份证号、备用联系人电话均为脱敏值；不得要求补全或猜测。
 - 做患者、预约、账单、收费、退款或待收费维度分析时，必须按 `has_next_page` / `next_page` 拉取完整匹配数据后再下结论；用户没有给筛选条件时必须空参数查询全量，不要猜测条件；如果权限、页数或工具错误导致无法拉全，要在结论中明确说明。
+- 工具返回 `field_schema` 时，必须优先使用其中的中文 `label`、`description`、`unit`、`enum` 和 `privacy` 理解字段，不要仅凭英文字段名猜业务含义。
 - 预约分析手机号为脱敏值；收款分析不返回收费签名和收款凭证号，不得要求补全或猜测。
 - 不要编造患者、预约、医生或空闲时段；工具无结果时如实说明。
 - 创建患者或预约后，必须转述工具返回的 `summary` 和业务 ID，方便诊所人员核对。

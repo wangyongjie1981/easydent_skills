@@ -64,9 +64,10 @@ Agent 步骤：
 
 1. 明确分析时间口径，例如 `date_field="created_at"`、`date_start="2026-07-01"`、`date_end="2026-07-31"`
 2. 调用 `list_patients_for_analysis(page_size=100, ...)`；如果用户没有给筛选条件，直接空参数查询，不要猜日期或来源
-3. 如果返回 `has_next_page=true`，继续用 `next_page` 调用，直到 `has_next_page=false`
-4. 只基于完整匹配集做统计；如果无法拉全，必须在结论中说明“数据未完整获取”
-5. 不使用 `search_patients` 的搜索结果样本做患者结构分析
+3. 先读取返回的 `field_schema`、`analysis_notes`、`privacy_notes` 和 `pagination_notes`，按中文标签理解字段
+4. 如果返回 `has_next_page=true`，继续用 `next_page` 调用，直到 `has_next_page=false`
+5. 只基于完整匹配集做统计；如果无法拉全，必须在结论中说明“数据未完整获取”
+6. 不使用 `search_patients` 的搜索结果样本做患者结构分析
 
 ### 查预约
 
@@ -85,8 +86,9 @@ Agent 步骤：
 
 1. 明确分析时间口径，例如 `date_field="scheduled_start"`、`date_start="2026-07-01"`、`date_end="2026-07-31"`
 2. 调用 `list_appointments_for_analysis(page_size=100, ...)`；如果用户没有给筛选条件，直接空参数查询，不要猜日期、状态或医生
-3. 如果返回 `has_next_page=true`，继续用 `next_page` 调用，直到 `has_next_page=false`
-4. 基于完整预约匹配集统计状态、渠道、医生、项目；不要只取 `list_daily_appointments` 的单日明细做跨期结论
+3. 先读取返回的 `field_schema`、`analysis_notes`、`privacy_notes` 和 `pagination_notes`，按中文标签理解字段
+4. 如果返回 `has_next_page=true`，继续用 `next_page` 调用，直到 `has_next_page=false`
+5. 基于完整预约匹配集统计状态、渠道、医生、项目；不要只取 `list_daily_appointments` 的单日明细做跨期结论
 
 ### 收款分析
 
@@ -96,8 +98,9 @@ Agent 步骤：
 
 1. 分别按需要调用 `list_billing_records_for_analysis(record_type="orders" | "payments" | "refunds" | "pending_charges", page_size=100, ...)`；如果用户只说“查收费/账单数据”且没有筛选条件，可先空参数调用，默认返回账单全量第一页
 2. 收费单通常使用 `date_field="paid_at"`；退款使用 `date_field="refunded_at"`；账单使用 `date_field="billing_day"`
-3. 每个 `record_type` 都按 `has_next_page` / `next_page` 拉取完整匹配集后再计算
-4. 说明收费签名和收款凭证号不作为分析字段返回；待收费是派生记录，需区分 `unpaid_order` 和 `unpriced_appointment`
+3. 每个 `record_type` 先读取返回的 `field_schema`、`analysis_notes`、`privacy_notes` 和 `pagination_notes`，按中文标签理解字段
+4. 每个 `record_type` 都按 `has_next_page` / `next_page` 拉取完整匹配集后再计算
+5. 说明收费签名和收款凭证号不作为分析字段返回；待收费是派生记录，需区分 `unpaid_order` 和 `unpriced_appointment`
 
 ### 查空闲时段
 
